@@ -1,0 +1,593 @@
+# Create 2 webservers with 1 eastic IP, target groups and load balancer.
+{
+
+  "Parameters" : {
+
+    "WebServerPort" : {
+      "Description" : "TCP/IP port of the web server",
+      "Type" : "String",
+      "Default" : "80"
+    },
+
+    "Subnets" : {
+      "Type" : "List<AWS::EC2::Subnet::Id>",
+      "Description" : "The list of SubnetIds in your Virtual Private Cloud (VPC)",
+      "ConstraintDescription" : "must be a list of at least two existing subnets associated with at least two different availability zones. They should be residing in the selected Virtual Private Cloud."
+    },
+
+
+
+    "HostedZone" : {
+      "Type" : "String",
+      "Description" : "The DNS name of an existing Amazon Route 53 hosted zone",
+      "AllowedPattern" : "(?!-)[a-zA-Z0-9-.]{1,63}(?<!-)",
+      "ConstraintDescription" : "must be a valid DNS zone name."
+    },
+
+    "Subdomain" : {
+      "Type" : "String",
+      "Description" : "Enter the name of Subdomain",
+      "AllowedPattern" : "(?!-)[a-zA-Z0-9-.]{1,63}(?<!-)",
+      "ConstraintDescription" : "must be a valid DNS zone name."
+    }
+
+  },
+
+
+  "Resources" :
+
+  {
+
+
+
+    "WebServer1":{
+
+    "Type": "AWS::EC2::Instance",
+
+
+      "Metadata" : {
+        "Comment" : "Install a simple PHP application",
+        "AWS::CloudFormation::Init" : {
+          "configSets" : {
+            "InstallAndRun" : [ "Install", "Configure" ]
+          },
+
+          "Install" : {
+            "packages" : {
+              "yum" : {
+                "httpd"             : [],
+                "php"               : [],
+                "mariadb"           : []
+              }
+            },
+
+            "sources" : {
+              "/var/www/html" : "http://wordpress.org/latest.tar.gz"
+            },
+
+            "files" : {
+
+              "/var/www/html/index.php" : {
+                "content" : { "Fn::Join" : ["", [
+                  "<?php\n",
+                  "echo '<h1>Application 1-v1</h1>';\n",
+                  "?>\n"
+                ]]},
+                "mode"    : "000644",
+                "owner"   : "apache",
+                "group"   : "apache"
+              },
+
+              "/etc/cfn/cfn-hup.conf" : {
+                "content" : { "Fn::Join" : ["", [
+                  "[main]\n",
+                  "stack=", { "Ref" : "AWS::StackId" }, "\n",
+                  "region=", { "Ref" : "AWS::Region" }, "\n",
+                  "interval=","1"
+                ]]},
+                "mode"    : "000400",
+                "owner"   : "root",
+                "group"   : "root"
+              },
+
+              "/etc/cfn/hooks.d/cfn-auto-reloader.conf" : {
+                "content": { "Fn::Join" : ["", [
+                  "[cfn-auto-reloader-hook]\n",
+                  "triggers=post.update\n",
+                  "path=Resources.WebServer1.Metadata.AWS::CloudFormation::Init\n",
+                  "action=/opt/aws/bin/cfn-init -v ",
+                  "         --stack ", { "Ref" : "AWS::StackName" },
+                  "         --resource WebServer1 ",
+                  "         --configsets InstallAndRun ",
+                  "         --region ", { "Ref" : "AWS::Region" }, "\n",
+                  "runas=root\n"
+                ]]}
+
+              },
+
+              "/tmp/create_db.sql" : {
+                "content" : { "Fn::Join" : ["", [
+                  "create database db1;\n",
+                ]]},
+                "mode"    : "000644",
+                "owner"   : "ec2-user",
+                "group"   : "ec2-user"
+              },
+
+
+              "/var/www/html/wordpress/wp-config.php" : {
+                "content" : { "Fn::Join" : ["", [
+                  "<?php\n",
+                  "define('DB_NAME',          'db1');\n",
+                  "define('DB_USER',          'Admin');\n",
+                  "define('DB_PASSWORD',      'aurora123');\n",
+                  "define('DB_HOST',          '", {"Fn::GetAtt" : ["RDSCluster", "Endpoint.Address"]},"');\n",
+                  "define('DB_CHARSET',       'utf8');\n",
+                  "define('DB_COLLATE',       '');\n",
+                  "define('AUTH_KEY',         'f@A17vs{ mO0}:&I,6SB.QzV`E?!`/tN5:~GZX%=@ZA%!_T0-]9>g]4ll6~,6G|R');\n",
+                  "define('SECURE_AUTH_KEY',  'gTFTI|~rYHY)|mlu:Cv7RN]GQ^3ngyUbw;L0o!12]0c-ispR<-yt3qj]xjquz^&9');\n",
+                  "define('LOGGED_IN_KEY',    'Jd:HG9M)1p5t2<v~+R-vd{p-Q*|*RB^&PUI{vIrydAEEiV!{HS{jN:nErCmLv`p}');\n",
+                  "define('NONCE_KEY',        '4aMj4KZV;,Gu7(B|qOCve[c5?*J5x1+x93i:Ey6hh/6jXh+V_{V4+hw!qE^d*U,-');\n",
+                  "define('AUTH_SALT',        '_Y_&8m)FH)Cns)8}Yb8b88KDSn:p1#p(qBa<~VW&Y1v}P.*9/8S8@P`{mkNxV lC');\n",
+                  "define('SECURE_AUTH_SALT', '%nG3Ag41^Lew5c86,#zbN:yPFs.GA5a)z5*:Oce1>v6uF~D`,.o1pzS)F8[bM9i[');\n",
+                  "define('LOGGED_IN_SALT',   '~K<y+Ly+_Ww1~dtq>;rSQ^+{P5/k|=!]k%RXAF-Y@XMY6GSp+wJ5{(|rCzaWjZ%/');\n",
+                  "define('NONCE_SALT',       ',Bs_*Y9:b/1Z:apVLHtz35uim|okkA,b|Jt[-&Nla=T{<l_#D?~6Tj-.2.]FonI~');\n",
+                  "define('WPLANG'            , '');\n",
+                  "define('WP_DEBUG'          , false);\n",
+                  "$table_prefix  = 'wp_';\n",
+                  "if ( !defined('ABSPATH') )\n",
+                  "    define('ABSPATH', dirname(__FILE__) . '/');\n",
+                  "require_once(ABSPATH . 'wp-settings.php');\n"
+                ]] },
+                "mode" : "000644",
+                "owner" : "root",
+                "group" : "root"
+              },
+
+              "/tmp/httpd-sample.sh" : {
+              "content" : { "Fn::Join" : ["", [
+
+                "sed -i '$ a Listen 443' /etc/httpd/conf/httpd.conf \n",
+
+
+                ]]},
+                "mode"    : "000644",
+                "owner"   : "ec2-user",
+                "group"   : "ec2-user"
+              },
+
+
+            },
+
+
+            "commands" : {
+              "01_update" : {
+                "command" : { "Fn::Join" : ["", ["sudo yum update -y; sudo amazon-linux-extras install -y lamp-mariadb10.2-php7.2 php7.2"]]}
+              },
+
+              "02_permissions" : {
+                "command" : { "Fn::Join" : ["", ["sudo usermod -a -G apache ec2-user; sudo chown -R ec2-user:apache /var/www"]]}
+              },
+
+              "03_apache" : {
+                "command" : { "Fn::Join" : ["", ["sudo chmod 777 /tmp/httpd-sample.sh; cd /tmp; sudo ./httpd-sample.sh"]]}
+              },
+
+            },
+
+
+            "services" : {
+              "sysvinit" : {
+                "httpd"    : { "enabled" : "true", "ensureRunning" : "true" },
+                "cfn-hup" : { "enabled" : "true", "ensureRunning" : "true",
+                              "files" : ["/etc/cfn/cfn-hup.conf", "/etc/cfn/hooks.d/cfn-auto-reloader.conf"]}
+
+              }
+            },
+
+
+   },
+
+          "Configure" : {
+            "commands" : {
+
+            }
+
+
+          }
+
+
+
+          }
+        },
+
+
+
+
+      "Properties":{
+         "ImageId" : "ami-00e782930f1c3dbc7",
+         "KeyName" : "amjad_crosstalk",
+         "InstanceType":"t2.micro",
+         "AvailabilityZone" : "ap-south-1a",
+         "SecurityGroups" : [ { "Ref" : "InstanceSecurityGroup" } ],
+         "UserData"       : { "Fn::Base64" : { "Fn::Join" : ["", [
+          "#!/bin/bash\n",
+          "yum update -y aws-cfn-bootstrap\n",
+
+          "# Install the files and packages from the metadata\n",
+          "/opt/aws/bin/cfn-init ",
+          "         --stack ", { "Ref" : "AWS::StackName" },
+          "         --resource WebServer1 ",
+          "         --configsets InstallAndRun ",
+          "         --region ", { "Ref" : "AWS::Region" }, "\n",
+
+          "# Start up the cfn-hup daemon to listen for changes to the Web Server metadata\n",
+          "/opt/aws/bin/cfn-hup || error_exit 'Failed to start cfn-hup'\n",
+
+          "mysql --user=Admin --password=aurora123 -h '",  { "Fn::GetAtt": [ "RDSCluster", "Endpoint.Address" ] },"' < /tmp/create_db.sql \n",
+
+        ]]}}
+
+
+
+
+
+
+                  }
+
+
+    },
+
+
+
+
+
+
+    "WebServer2":{
+      "Type": "AWS::EC2::Instance",
+
+
+      "Metadata" : {
+        "Comment" : "Install a simple PHP application",
+        "AWS::CloudFormation::Init" : {
+          "config" : {
+            "packages" : {
+              "yum" : {
+                "httpd"             : [],
+                "php"               : []
+              }
+            },
+
+            "files" : {
+
+              "/var/www/html/index.php" : {
+                "content" : { "Fn::Join" : ["", [
+                  "<?php\n",
+                  "echo '<h1>Application 2</h1>';\n",
+                  "?>\n"
+                ]]},
+                "mode"    : "000644",
+                "owner"   : "apache",
+                "group"   : "apache"
+              },
+
+            "/tmp/httpd-sample.sh" : {
+              "content" : { "Fn::Join" : ["", [
+
+                "sed -i '$ a Listen 443' /etc/httpd/conf/httpd.conf \n",
+                "sed -i '$ a <VirtualHost *:80>' /etc/httpd/conf/httpd.conf \n",
+                "sed -i '$ a      ServerName malamar.crosstalk.us' /etc/httpd/conf/httpd.conf \n",
+                "sed -i '$ a      ServerAdmin support@evolutionhosting.com' /etc/httpd/conf/httpd.conf \n",
+                "sed -i '$ a      DocumentRoot /var/www/html' /etc/httpd/conf/httpd.conf \n",
+                "sed -i '$ a      RequestHeader add X-Forwarded-For %{REMOTE_ADDR}s' /etc/httpd/conf/httpd.conf \n",
+                "sed -i '$ a      ProxyPreserveHost on' /etc/httpd/conf/httpd.conf \n",
+                "sed -i '$ a      ProxyVia off' /etc/httpd/conf/httpd.conf \n",
+                "sed -i '$ a      ProxyPass               / http://'",{ "Fn::GetAtt" : [ "WebServer1", "PrivateIp" ]},"':80/' /etc/httpd/conf/httpd.conf \n",
+                "sed -i '$ a      ProxyPassReverse        / http://'",{ "Fn::GetAtt" : [ "WebServer1", "PrivateIp" ]},"':80/' /etc/httpd/conf/httpd.conf \n",
+                "sed -i '$ a </VirtualHost>' /etc/httpd/conf/httpd.conf \n",
+
+                "sed -i '$ a <VirtualHost *:443>' /etc/httpd/conf/httpd.conf \n",
+                "sed -i '$ a      ServerName malamar.crosstalk.us' /etc/httpd/conf/httpd.conf \n",
+                "sed -i '$ a      ServerAdmin support@evolutionhosting.com' /etc/httpd/conf/httpd.conf \n",
+                "sed -i '$ a      DocumentRoot /var/www/html' /etc/httpd/conf/httpd.conf \n",
+                "sed -i '$ a      RequestHeader add X-Forwarded-For %{REMOTE_ADDR}s' /etc/httpd/conf/httpd.conf \n",
+                "sed -i '$ a      ProxyPreserveHost on' /etc/httpd/conf/httpd.conf \n",
+                "sed -i '$ a      ProxyVia off' /etc/httpd/conf/httpd.conf \n",
+                "sed -i '$ a      ProxyPass               / http://'",{ "Fn::GetAtt" : [ "WebServer1", "PrivateIp" ]},"':443/' /etc/httpd/conf/httpd.conf \n",
+                "sed -i '$ a      ProxyPassReverse        / http://'",{ "Fn::GetAtt" : [ "WebServer1", "PrivateIp" ]},"':443/' /etc/httpd/conf/httpd.conf \n",
+                "sed -i '$ a </VirtualHost>' /etc/httpd/conf/httpd.conf \n"
+
+                ]]},
+                "mode"    : "000644",
+                "owner"   : "ec2-user",
+                "group"   : "ec2-user"
+              },
+
+
+
+            },
+
+            "commands" : {
+              "01_apache" : {
+                "command" : { "Fn::Join" : ["", ["sudo chmod 777 /tmp/httpd-sample.sh; cd /tmp; sudo ./httpd-sample.sh"]]}
+              },
+
+            },
+
+
+            "services" : {
+              "sysvinit" : {
+                "httpd"    : { "enabled" : "true", "ensureRunning" : "true" },
+
+              }
+            }
+
+
+
+
+          }
+        }
+      },
+
+
+
+      "Properties":{
+         "ImageId" : "ami-00e782930f1c3dbc7",
+         "KeyName" : "amjad_crosstalk",
+         "InstanceType":"t2.micro",
+         "AvailabilityZone" : "ap-south-1b",
+         "SecurityGroups" : [ { "Ref" : "InstanceSecurityGroup" } ],
+                 "UserData"       : { "Fn::Base64" : { "Fn::Join" : ["", [
+          "#!/bin/bash\n",
+          "yum update -y aws-cfn-bootstrap\n",
+
+          "/opt/aws/bin/cfn-init -s ", { "Ref" : "AWS::StackId" }, " -r WebServer2",
+          "         --region ", { "Ref" : "AWS::Region" }
+
+
+        ]]}}
+
+
+                  }
+
+
+
+
+                },
+
+
+  "RDSCluster": {
+
+  "Type" : "AWS::RDS::DBCluster",
+  "Properties" : {
+      "DatabaseName" : "malamardbcluster",
+      "Engine" : "aurora",
+      "EngineMode" : "serverless",
+      "MasterUserPassword" : "aurora123",
+      "MasterUsername" : "Admin",
+      "ScalingConfiguration" :
+      {
+          "AutoPause" : "true",
+          "MaxCapacity" : 2,
+          "MinCapacity" : 1,
+          "SecondsUntilAutoPause" : 300
+      } ,
+      "VpcSecurityGroupIds": [{"Fn::GetAtt": [ "RDSSecurityGroup", "GroupId"]}]
+    }
+},
+
+
+
+
+
+  "InstanceSecurityGroup" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "GroupDescription" : "Enable SSH access via port 22, HTTP via Port 80, ICMP via any Port",
+
+        "SecurityGroupIngress" : [ {
+          "IpProtocol" : "tcp",
+          "FromPort" : "22",
+          "ToPort" : "22",
+          "CidrIp" : "0.0.0.0/0"
+        }, {
+          "IpProtocol" : "tcp",
+          "FromPort" : "80",
+          "ToPort" : "80",
+          "CidrIp" : "0.0.0.0/0"
+        },{
+          "IpProtocol" : "icmp",
+          "FromPort" : "8",
+          "ToPort" : "0",
+          "CidrIp" : "0.0.0.0/0"
+        },{
+          "IpProtocol" : "tcp",
+          "FromPort" : "3306",
+          "ToPort" : "3306",
+          "CidrIp" : "0.0.0.0/0"
+
+        } ]
+      }
+   },
+
+
+   "LoadBalancerSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "Loadbalancer Allowed Ports",
+        "VpcId": "vpc-a62e18ce",
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "80",
+            "ToPort": "80",
+            "CidrIp": "0.0.0.0/0"
+          },{
+            "IpProtocol": "tcp",
+            "FromPort": "443",
+            "ToPort": "443",
+            "CidrIp": "0.0.0.0/0"
+          } ]
+      }
+    },
+
+
+    "RDSSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "RDS Allowed Ports",
+        "VpcId": "vpc-a62e18ce",
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "3306",
+            "ToPort": "3306",
+            "CidrIp": "0.0.0.0/0"
+          }
+        ]
+      }
+    },
+
+
+  "mycert" : {
+  "Type" : "AWS::CertificateManager::Certificate",
+  "Properties" : {
+    "DomainName" : { "Fn::Join" : [ "", [{"Ref" : "Subdomain"}, ".", {"Ref" : "HostedZone"}]]},
+    "DomainValidationOptions" : [{
+      "DomainName" : { "Fn::Join" : [ "", [{"Ref" : "Subdomain"}, ".", {"Ref" : "HostedZone"}]]},
+      "ValidationDomain" : {"Ref" : "HostedZone"},
+
+    }],
+    "ValidationMethod" : "DNS"
+  }
+},
+
+
+  "TargetGroup":{
+  "Type" : "AWS::ElasticLoadBalancingV2::TargetGroup",
+  "Properties" : {
+      "HealthCheckEnabled" : "true",
+      "HealthCheckIntervalSeconds" : "30",
+      "HealthCheckPath" : "/index.php",
+      "HealthCheckPort" : "80",
+      "HealthCheckProtocol" : "HTTP",
+      "HealthCheckTimeoutSeconds" : "5",
+      "HealthyThresholdCount" : "2",
+      "Name" : "TargetGroup1",
+      "Port" : "80",
+      "Protocol" : "HTTP",
+      "TargetType" : "instance",
+      "Targets" :
+
+      [ { "Id" : { "Ref" : "WebServer1"}, "Port" : 80 },
+        { "Id" : { "Ref" : "WebServer2"}, "Port" : 80 }
+
+       ],
+
+      "UnhealthyThresholdCount" : "5",
+      "VpcId" : "vpc-a62e18ce"
+    }
+},
+
+
+    "ApplicationLoadBalancer" : {
+      "Type" : "AWS::ElasticLoadBalancingV2::LoadBalancer",
+      "Properties" : {
+        "Subnets" : { "Ref" : "Subnets"},
+        "SecurityGroups": [{"Ref": "LoadBalancerSecurityGroup"}]
+      }
+    },
+
+    "ALBListenerhttp" : {
+      "Type" : "AWS::ElasticLoadBalancingV2::Listener",
+      "Properties" : {
+        "DefaultActions" : [{
+          "Type" : "redirect",
+
+          "RedirectConfig": {
+                    "Protocol": "HTTPS",
+                    "Port": "443",
+                    "Host": "#{host}",
+                    "Path": "/#{path}",
+                    "Query": "#{query}",
+                    "StatusCode": "HTTP_301"
+                }
+        }],
+        "LoadBalancerArn" : { "Ref" : "ApplicationLoadBalancer" },
+        "Port" : "80",
+        "Protocol" : "HTTP"
+      }
+    },
+
+    "ALBListenerhttps" : {
+      "Type" : "AWS::ElasticLoadBalancingV2::Listener",
+      "Properties" : {
+        "DefaultActions" : [{
+          "Type" : "forward",
+          "TargetGroupArn" : { "Ref" : "TargetGroup" }
+        }],
+        "LoadBalancerArn" : { "Ref" : "ApplicationLoadBalancer" },
+        "Port" : "443",
+        "Protocol" : "HTTPS",
+        "SslPolicy" : "ELBSecurityPolicy-2016-08",
+
+        "Certificates" :
+        [
+
+        { "CertificateArn" : {"Ref" :"mycert" } },
+
+        ]
+      }
+    },
+
+
+
+
+
+    "IPAddress" : {
+      "Type" : "AWS::EC2::EIP",
+      "Properties" : {
+      "InstanceId" : { "Ref" : "WebServer1" }
+    }
+  },
+
+
+
+"Alias" : {
+                "Type" : "AWS::Route53::RecordSetGroup",
+                "Properties" : {
+                    "HostedZoneName" : { "Fn::Join" : [ "", [{"Ref" : "HostedZone"}, "." ]]},
+                    "Comment" : "Alias for ELB",
+                    "RecordSets" : [
+                        {
+                          "Name" : { "Fn::Join" : [ "", [{"Ref" : "Subdomain"}, ".", {"Ref" : "HostedZone"} ,"."]]},
+                          "Type" : "A",
+                          "AliasTarget" : {
+                              "HostedZoneId" : { "Fn::GetAtt" : ["ApplicationLoadBalancer", "CanonicalHostedZoneID"] },
+                              "DNSName" : { "Fn::GetAtt" : ["ApplicationLoadBalancer","DNSName"] }
+                          }
+                        }
+                    ]
+               }
+         }
+
+
+
+
+
+
+
+},
+
+"Outputs" : {
+
+  "DBAddress" : {
+      "Description" : "Address of database endpoint",
+      "Value" : { "Fn::GetAtt": [ "RDSCluster", "Endpoint.Address" ] }
+    },
+
+
+ }
+
+
+}
