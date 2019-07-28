@@ -3,7 +3,7 @@
     "WebServerPort" : "80",
     "Subnets" :  "subnet-77336c1f,subnet-39018c75",
     "HostedZone" : "crosstalk.us",
-    "Subdomain" : "qa.malamar",
+    "Subdomain" : "malamar",
     "DatabaseName" : "MalamarProdDB",
     "DatabaseUsername" : "Admin",
     "DatabasePassword" : "aurora123"
