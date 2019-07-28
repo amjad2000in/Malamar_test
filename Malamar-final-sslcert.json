@@ -29,6 +29,24 @@
       "Description" : "Enter the name of Subdomain",
       "AllowedPattern" : "(?!-)[a-zA-Z0-9-.]{1,63}(?<!-)",
       "ConstraintDescription" : "must be a valid DNS zone name."
+    },
+
+    "DatabaseName" : {
+      "Type" : "String",
+      "Description" : "Enter the name of Database you want to create",
+      "AllowedPattern" : "(?!-)[a-zA-Z0-9-.]{1,63}(?<!-)",
+    },
+
+    "DatabaseUsername" : {
+      "Type" : "String",
+      "Description" : "Enter the Username name for Database",
+      "AllowedPattern" : "(?!-)[a-zA-Z0-9-.]{1,63}(?<!-)",
+    },
+
+    "DatabasePassword" : {
+      "Type" : "String",
+      "Description" : "Enter the Password for Database",
+      "AllowedPattern" : "(?!-)[a-zA-Z0-9-.]{1,63}(?<!-)",
     }
 
   },
@@ -119,8 +137,8 @@
                 "content" : { "Fn::Join" : ["", [
                   "<?php\n",
                   "define('DB_NAME',          'db1');\n",
-                  "define('DB_USER',          'Admin');\n",
-                  "define('DB_PASSWORD',      'aurora123');\n",
+                  "define('DB_USER',          '", { "Ref" : "DatabaseUsername" },"');\n",
+                  "define('DB_PASSWORD',      '", { "Ref" : "DatabasePassword" },"');\n",
                   "define('DB_HOST',          '", {"Fn::GetAtt" : ["RDSCluster", "Endpoint.Address"]},"');\n",
                   "define('DB_CHARSET',       'utf8');\n",
                   "define('DB_COLLATE',       '');\n",
@@ -360,11 +378,11 @@
 
   "Type" : "AWS::RDS::DBCluster",
   "Properties" : {
-      "DatabaseName" : "malamardbcluster",
+      "DatabaseName" : { "Ref" : "DatabaseName" },
       "Engine" : "aurora",
       "EngineMode" : "serverless",
-      "MasterUserPassword" : "aurora123",
-      "MasterUsername" : "Admin",
+      "MasterUserPassword" : { "Ref" : "DatabasePassword" },
+      "MasterUsername" : { "Ref" : "DatabaseUsername" },
       "ScalingConfiguration" :
       {
           "AutoPause" : "true",
