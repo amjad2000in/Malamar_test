@@ -1,6 +1,6 @@
 # Create 2 webservers with 1 eastic IP, target groups and load balancer.
 {
-
+  
   "Parameters" : {
 
     "WebServerPort" : {
