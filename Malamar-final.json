@@ -1,6 +1,7 @@
 # Create 2 webservers with 1 eastic IP, target groups and load balancer.
 {
-  
+
+
   "Parameters" : {
 
     "WebServerPort" : {
@@ -88,7 +89,7 @@
               "/var/www/html/index.php" : {
                 "content" : { "Fn::Join" : ["", [
                   "<?php\n",
-                  "echo '<h1>Application 1-v3</h1>';\n",
+                  "echo '<h1>Application 1-v4</h1>';\n",
                   "?>\n"
                 ]]},
                 "mode"    : "000644",
@@ -479,7 +480,7 @@
       "HealthCheckProtocol" : "HTTP",
       "HealthCheckTimeoutSeconds" : "5",
       "HealthyThresholdCount" : "2",
-      "Name" : "TargetGroup1",
+      "Name" : "TargetGroupProd",
       "Port" : "80",
       "Protocol" : "HTTP",
       "TargetType" : "instance",
