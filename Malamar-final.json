@@ -89,7 +89,8 @@
               "/var/www/html/index.php" : {
                 "content" : { "Fn::Join" : ["", [
                   "<?php\n",
-                  "echo '<h1>Application 1-v5</h1>';\n",
+                  "echo '<h1>Application 1-v6</h1>';\n",
+                  "echo '<h1>Production also updating to version 6</h1>';\n",
                   "?>\n"
                 ]]},
                 "mode"    : "000644",
