@@ -480,7 +480,7 @@
       "HealthCheckProtocol" : "HTTP",
       "HealthCheckTimeoutSeconds" : "5",
       "HealthyThresholdCount" : "2",
-      "Name" : "TargetGroup1",
+      "Name" : "TargetGroupQA",
       "Port" : "80",
       "Protocol" : "HTTP",
       "TargetType" : "instance",
